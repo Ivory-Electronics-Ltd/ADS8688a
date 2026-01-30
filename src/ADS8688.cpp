@@ -7,25 +7,24 @@
 //  INSTANCIATION     //
 ////////////////////////
 
-ADS8688::ADS8688(SPIClass* spi) {
+ADS8688::ADS8688() {
     _cs = 10;                     // default chip select pin
     _mode = MODE_IDLE;            // start in Idle mode
     _vref = 4.096;                // vref at 4.096
     _feature = 0;                 // start with no feature
-    _spi = spi;                   // store SPI instance
+    pinMode(_cs,OUTPUT);          // set the pin as output
+    digitalWrite(_cs,HIGH);       // set the pin to default HIGH state
+    SPI.begin();                  // initiate SPI
     }
 
-ADS8688::ADS8688(byte cs, SPIClass* spi) {
-    _cs = cs;                     // choose the chip select pin
+ADS8688::ADS8688(byte cs) {
+	_cs = cs;                     // choose the chip select pin
     _mode = MODE_IDLE;            // start in Idle mode
     _vref = 4.096;                // vref at 4.096
     _feature = 0;                 // start with no feature
-    _spi = spi;
-    }
-
-void ADS8688::init() {
-    pinMode(_cs, OUTPUT);         // set the pin as output
-    digitalWrite(_cs, HIGH);      // set the pin to default HIGH state
+	pinMode(_cs,OUTPUT);          // set the pin as output
+    digitalWrite(_cs,HIGH);       // set the pin to default HIGH state
+    SPI.begin();                  // initiate SPI
     }
 
 /////////////////////////
@@ -345,42 +344,42 @@ uint16_t ADS8688::V2I(float x, uint8_t range) {
 /////////////////////////
 
 void ADS8688::writeRegister(uint8_t reg, uint8_t val) {
-    _spi->beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
+    SPI.beginTransaction(SPISettings(17000000, MSBFIRST, SPI_MODE1));
     digitalWrite(_cs, LOW);
-    _spi->transfer((reg << 1) | 0x01);
-    _spi->transfer(val);;
-    _spi->transfer(0x00);
+    SPI.transfer((reg << 1) | 0x01);
+    SPI.transfer(val);;
+    SPI.transfer(0x00);
     digitalWrite(_cs, HIGH);
-    _spi->endTransaction();
+    SPI.endTransaction();
     _mode = MODE_PROG;
     }
 
 uint8_t ADS8688::readRegister(uint8_t reg) {
-    _spi->beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
+    SPI.beginTransaction(SPISettings(17000000, MSBFIRST, SPI_MODE1));
     digitalWrite(_cs, LOW);
-    _spi->transfer((reg << 1) | 0x00);
-    _spi->transfer(0x00);
-    byte result = _spi->transfer(0x00);
+    SPI.transfer((reg << 1) | 0x00);
+    SPI.transfer(0x00);
+    byte result = SPI.transfer(0x00);
     digitalWrite(_cs, HIGH);
-    _spi->endTransaction();
+    SPI.endTransaction();
     _mode = MODE_PROG;
     return result;
     }
 
 uint16_t ADS8688::cmdRegister(uint8_t reg) {
-    _spi->beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
+    SPI.beginTransaction(SPISettings(17000000, MSBFIRST, SPI_MODE1));
     digitalWrite(_cs, LOW);
-    _spi->transfer(reg);
-    _spi->transfer(0x00);
+    SPI.transfer(reg);
+    SPI.transfer(0x00);
     int16_t result = 0;
     if (_mode > 4) {
         // only 16 bit if POWERDOWN or STDBY or RST or IDLE
-        byte MSB = _spi->transfer(0x00);
-        byte LSB = _spi->transfer(0x00);
+        byte MSB = SPI.transfer(0x00);
+        byte LSB = SPI.transfer(0x00);
         result = ( MSB << 8) | LSB;
         }
     digitalWrite(_cs, HIGH);
-    _spi->endTransaction();
+    SPI.endTransaction();
     
     // when exit power down it takes 15 ms to be operationnal
     if (_mode == MODE_POWER_DN) delay(15);

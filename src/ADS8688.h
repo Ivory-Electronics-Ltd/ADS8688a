@@ -6,7 +6,7 @@
     #define ADS8688_h
     #include "Arduino.h"
     #include "SPI.h"
-   
+
     //COMMAND REGISTER MAP --------------------------------------------------------------------------------------------
 
     #define NO_OP     0x00  // Continue operation in previous mode
@@ -88,10 +88,9 @@
 
 	class ADS8688 {
 		public:
-            ADS8688(SPIClass* spi = &SPI);                                    // instantiate with PIN10 as CS
-			ADS8688(uint8_t cs, SPIClass* spi = &SPI);   // instantiate with custom CS pin and SPI instance
-            void init();                                  // call in setup() after SPI.begin()
-
+            ADS8688();                                    // instantiate with PIN10 as CS
+			ADS8688(uint8_t cs);                          // instantiate with custom CS pin
+        
             void setVREF(float vref);                     // set external Vref
             float I2V(uint16_t x, uint8_t range);         // map uint16 to Volts according to Vref and Range
             uint16_t V2I(float x, uint8_t range);         // map Volts to uint16 according to Vref and Range
@@ -146,7 +145,6 @@
             void writeRegister(uint8_t reg, uint8_t val); // write 8 bit data into a register
             uint8_t readRegister(uint8_t reg);            // read 8 bit data in a specific register
             uint16_t cmdRegister(uint8_t reg);            // send a command register and read
-            SPIClass* _spi = nullptr;                            // SPI instance
         };
 
 #endif // ADS8688_h
