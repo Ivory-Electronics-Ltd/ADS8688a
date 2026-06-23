@@ -92,6 +92,9 @@
 			ADS8688(uint8_t cs, SPIClass* spi = &SPI);   // instantiate with custom CS pin and SPI instance
             void init();                                  // call in setup() after SPI.begin()
 
+            void setClockSpeed(uint32_t hz);              // set SPI clock used per transaction (default 10 MHz)
+            void setSPISettings(SPISettings settings);    // set full SPI settings used per transaction
+
             void setVREF(float vref);                     // set external Vref
             float I2V(uint16_t x, uint8_t range);         // map uint16 to Volts according to Vref and Range
             uint16_t V2I(float x, uint8_t range);         // map Volts to uint16 according to Vref and Range
@@ -143,6 +146,10 @@
 		private:
             float _vref;
             uint8_t _cs, _mode, _feature;                 // chip select pin, current operation mode
+            // Per-transaction SPI settings. Defaults to the datasheet-max 10 MHz,
+            // Mode 0; overridable via setClockSpeed()/setSPISettings() so the
+            // library does not impose a clock the caller did not choose.
+            SPISettings _spiSettings = SPISettings(10000000, MSBFIRST, SPI_MODE0);
             void writeRegister(uint8_t reg, uint8_t val); // write 8 bit data into a register
             uint8_t readRegister(uint8_t reg);            // read 8 bit data in a specific register
             uint16_t cmdRegister(uint8_t reg);            // send a command register and read

@@ -28,6 +28,14 @@ void ADS8688::init() {
     digitalWrite(_cs, HIGH);      // set the pin to default HIGH state
     }
 
+void ADS8688::setClockSpeed(uint32_t hz) {
+    _spiSettings = SPISettings(hz, MSBFIRST, SPI_MODE0);
+    }
+
+void ADS8688::setSPISettings(SPISettings settings) {
+    _spiSettings = settings;
+    }
+
 /////////////////////////
 //  PUBLIC METHODS    //
 /////////////////////////
@@ -345,7 +353,7 @@ uint16_t ADS8688::V2I(float x, uint8_t range) {
 /////////////////////////
 
 void ADS8688::writeRegister(uint8_t reg, uint8_t val) {
-    _spi->beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
+    _spi->beginTransaction(_spiSettings);
     digitalWrite(_cs, LOW);
     _spi->transfer((reg << 1) | 0x01);
     _spi->transfer(val);;
@@ -356,7 +364,7 @@ void ADS8688::writeRegister(uint8_t reg, uint8_t val) {
     }
 
 uint8_t ADS8688::readRegister(uint8_t reg) {
-    _spi->beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
+    _spi->beginTransaction(_spiSettings);
     digitalWrite(_cs, LOW);
     _spi->transfer((reg << 1) | 0x00);
     _spi->transfer(0x00);
@@ -368,13 +376,32 @@ uint8_t ADS8688::readRegister(uint8_t reg) {
     }
 
 uint16_t ADS8688::cmdRegister(uint8_t reg) {
-    _spi->beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
+    // Per Figure 95 (State Transition Diagram), MAN_Ch_n and AUTO_RST are only
+    // valid edges out of IDLE. After register writes the device sits in PROGRAM
+    // mode (and after RST, in RESET) — there is NO direct PROG/RESET -> AUTO/MANUAL
+    // edge. From PROG or RESET, a NO_OP first returns the device to IDLE. Without
+    // this, an AUTO_RST/MAN_Ch_n issued from PROG is ignored by the hardware while
+    // the driver wrongly believes it switched mode, so conversions read back as 0.
+    bool entersConvCluster = (reg == AUTO_RST) || (reg >= MAN_Ch_0 && reg <= MAN_AUX);
+    if (entersConvCluster && (_mode == MODE_PROG || _mode == MODE_RESET)) {
+        _spi->beginTransaction(_spiSettings);
+        digitalWrite(_cs, LOW);
+        _spi->transfer(NO_OP);          // PROG/RESET -> IDLE
+        _spi->transfer(0x00);
+        digitalWrite(_cs, HIGH);
+        _spi->endTransaction();
+        _mode = MODE_IDLE;
+    }
+
+    _spi->beginTransaction(_spiSettings);
     digitalWrite(_cs, LOW);
     _spi->transfer(reg);
     _spi->transfer(0x00);
     int16_t result = 0;
-    if (_mode > 4) {
-        // only 16 bit if POWERDOWN or STDBY or RST or IDLE
+    // Conversion data is clocked out in MANUAL and AUTO modes (the right-hand
+    // cluster of Figure 95). In IDLE/RESET/STANDBY/POWER_DN/PROG the device does
+    // not convert, so the extra two bytes would be meaningless.
+    if (_mode == MODE_MANUAL || _mode == MODE_AUTO || _mode == MODE_AUTO_RST) {
         byte MSB = _spi->transfer(0x00);
         byte LSB = _spi->transfer(0x00);
         result = ( MSB << 8) | LSB;
